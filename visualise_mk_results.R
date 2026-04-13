@@ -14,6 +14,10 @@ if(!file.exists(raster_path)){
   # 2. Load the stacked multi-band raster
   r <- rast(raster_path)
   
+  # Set the NA flag correctly so Dynamic World masked pixels and 
+  # irregular site boundaries from GEE are transparent
+  NAflag(r) <- -9999
+  
   # Choose a metric to visualise (e.g., INDVI)
   metric <- "INDVI" 
   
