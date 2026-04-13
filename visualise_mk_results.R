@@ -2,63 +2,46 @@
 # Simple visualisor for Earth Engine Mann-Kendall Stacked Rasters
 # ==============================================================================
 
-library(tidyverse)
 library(terra)
-library(tidyterra)
 
-# 1. Provide the path to the downloaded .tif file from Google Drive
-# Replace this with your actual downloaded file path
+# 1. Provide the path to the downloaded .tif file
 raster_path <- "MannKendall_Stacked_Knepp.tif"
 
 if(!file.exists(raster_path)){
-  message("Please provide the correct path to your downloaded .tif file on line 10.")
+  message("Please provide the correct path to your downloaded .tif file on line 8.")
 } else {
   
   # 2. Load the stacked multi-band raster
   r <- rast(raster_path)
   
-  # Print the imported raster to see the available 9 bands:
-  # MK_S_INDVI, PValue_INDVI, SenSlope_INDVI, etc.
-  print(r)
-  
-  # 3. Choose a metric to visualise (e.g., INDVI)
-  # We extract only the 3 relevant bands for an easier plot
+  # Choose a metric to visualise (e.g., INDVI)
   metric <- "INDVI" 
-  r_metric <- r[[paste0(c("MK_S_", "PValue_", "SenSlope_"), metric)]]
   
-  # Rename them for cleaner facet labels
-  names(r_metric) <- c("Mann-Kendall S", "P-Value", "Sen's Slope")
+  # Extract individual bands
+  r_mk    <- r[[paste0("MK_S_", metric)]]
+  r_p     <- r[[paste0("PValue_", metric)]]
+  r_slope <- r[[paste0("SenSlope_", metric)]]
   
-  # 4. Visualisation
-  # This sets up a grid with independent colour scales for each statistic
-  p <- ggplot() +
-    geom_spatraster(data = r_metric) +
-    facet_wrap(~lyr, scales = "free") +
-    scale_fill_whitebox_c(
-      palette = "muted", 
-      na.value = "transparent"
-    ) +
-    theme_minimal() +
-    labs(
-      title = paste("NDVI Mann-Kendall Trend Results:", metric),
-      subtitle = "European Rewilding Progress Space",
-      fill = "Value"
-    ) +
-    theme(
-      axis.text = element_blank(),
-      strip.text = element_text(face = "bold", size = 12),
-      panel.grid = element_blank()
-    )
+  # Rename for plot headings
+  names(r_mk) <- "Mann-Kendall S"
+  names(r_p) <- "P-Value"
+  names(r_slope) <- "Sen's Slope"
   
-  # Print the plot
-  print(p)
+  # Combine them back into a slim stack
+  r_plot <- c(r_mk, r_p, r_slope)
   
-  # 5. Save the plot to disk
-  ggsave(
-    filename = paste0("MK_results_plot_", metric, ".png"), 
-    plot = p, 
-    width = 12, height = 5, dpi = 300, bg = "white"
-  )
+  # Set up output file
+  out_file <- paste0("MK_results_plot_", metric, ".png")
+  png(out_file, width = 1600, height = 500, res = 150)
   
-  message("Plot saved to working directory.")
+  # Plot side-by-side. 'terra::plot' natively handles independent colour scales
+  # per layer in the plot stack!
+  plot(r_plot, 
+       main = names(r_plot),
+       mar = c(3, 3, 3, 5),
+       axes = FALSE)
+       
+  dev.off()
+  
+  message(paste("Plot saved to:", out_file))
 }
