@@ -18,3 +18,5 @@ This repository contains the computational pipeline for quantifying long-term ve
 ## Agentic Programming & Refactoring
 
 This repository was constructed using agentic programming (Claude and Gemini with human supervision and verification). Fully human-authored Javascript GEE analyses were refactored to the Python API by AI, all key code logic is unit tested and human-validated. Accountability for any errors is with the human authors.
+
+**100% Logic Encapsulation**: To ensure complete modular safety, *all* Earth Engine pipeline logic (including processing parameters, data clipping, and multi-scale masking) and export batching operations are strictly encapsulated into globally-defined functional blocks alongside their synthetic unit tests. The notebook loop cells are explicitly limited to single-line caller functions.
