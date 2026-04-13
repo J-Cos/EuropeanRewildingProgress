@@ -9,7 +9,10 @@ This repository contains the computational pipeline for quantifying long-term ve
     *   Synthesises annual metrics alongside Dynamic World V1 static masks to filter out undesirable land-cover (e.g. water, crops, built environments).
     *   Applies pixel-wise, monotonic Mann-Kendall significance testing with tie-corrected variance (Sen, 1968) and continuity-corrected Z-scores.
     *   Calculates a robust median rate of change using Sen's Slope.
-    *   Exports a dense, 9-band `.tif` stack mapping metric statistics directly to Google Drive.
+    *   Exports a dense, 9-band `.tif` stack mapping metric statistics directly to Google Drive. The exported raster contains the following Float32 bands:
+        *   `MK_S_INDVI`, `PValue_INDVI`, `SenSlope_INDVI`
+        *   `MK_S_minNDVI`, `PValue_minNDVI`, `SenSlope_minNDVI`
+        *   `MK_S_maxNDVI`, `PValue_maxNDVI`, `SenSlope_maxNDVI`
 *   **`visualise_mk_results.R`**: A lightweight R plotting utility using base `terra::plot` to natively handle the geospatial rendering of the exported Earth Engine multi-band grids, applying independent sequential and diverging aesthetics to the generated S, P-value, and slope matrices.
 
 ## Agentic Programming & Refactoring
