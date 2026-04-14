@@ -1,5 +1,5 @@
 # ==============================================================================
-# Batch plot Sen's Slope (INDVI) across all 250m sites
+# Multi-panel figure: Sen's Slope (INDVI) across all 250m sites (4x5)
 # ==============================================================================
 
 library(terra)
@@ -8,32 +8,85 @@ input_dir  <- "Outputs/GEE_MK_250m"
 output_dir <- "Outputs/plots"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-tifs <- list.files(input_dir, pattern = "\\.tif$", full.names = TRUE)
+tifs <- sort(list.files(input_dir, pattern = "\\.tif$", full.names = TRUE))
 
-# Extract site name from filename
 get_site_name <- function(path) {
   base <- tools::file_path_sans_ext(basename(path))
   sub("^MK_Stacked_250m_", "", base) |> gsub("_", " ", x = _)
 }
 
-# ── Individual site plots ────────────────────────────────
-for (f in tifs) {
-  site <- get_site_name(f)
+# ── Load all slope layers and compute shared range ───────
+slopes <- lapply(tifs, function(f) {
   r <- rast(f)
   NAflag(r) <- -9999
+  r[["SenSlope_INDVI"]]
+})
+names(slopes) <- sapply(tifs, get_site_name)
 
-  slope <- r[["SenSlope_INDVI"]]
-  names(slope) <- "Sen's Slope (INDVI)"
+all_vals <- unlist(lapply(slopes, function(r) values(r, na.rm = TRUE)))
+zlim <- c(-1, 1) * max(abs(quantile(all_vals, c(0.02, 0.98))), na.rm = TRUE)
+ncols <- 50
+pal <- hcl.colors(ncols, "RdYlGn")
 
-  out_file <- file.path(output_dir, paste0("SenSlope_INDVI_", gsub(" ", "_", site), ".png"))
-  png(out_file, width = 800, height = 700, res = 150)
-  plot(slope,
-       main = paste0(site, "\nSen's Slope (INDVI)"),
-       col = hcl.colors(50, "RdYlGn"),
-       axes = FALSE,
-       mar = c(2, 2, 3, 4))
-  dev.off()
-  message(paste("  Plotted:", site))
+# ── Helper: draw a minimalist scale bar ──────────────────
+add_scalebar <- function(r) {
+  e <- ext(r)
+  # Width of raster in metres (approximate via CRS or degree conversion)
+  width_m <- (e$xmax - e$xmin) * 111320 * cos(mean(c(e$ymin, e$ymax)) * pi / 180)
+  
+  # Pick a round scale bar length
+  candidates <- c(1, 2, 5, 10, 20, 50, 100, 200, 500)
+  bar_km <- candidates[which.min(abs(candidates - width_m / 4000))]
+  bar_deg <- (bar_km * 1000) / (111320 * cos(mean(c(e$ymin, e$ymax)) * pi / 180))
+  
+  # Position: bottom-left
+  x0 <- e$xmin + (e$xmax - e$xmin) * 0.05
+  y0 <- e$ymin + (e$ymax - e$ymin) * 0.06
+  
+  lines(c(x0, x0 + bar_deg), c(y0, y0), lwd = 1.5, col = "grey30")
+  text(x0 + bar_deg / 2, y0 + (e$ymax - e$ymin) * 0.04,
+       paste0(bar_km, " km"), cex = 0.5, col = "grey30")
 }
 
-message(paste("\n✅ All", length(tifs), "site plots saved to", output_dir))
+# ── Build the layout: 4 rows x 5 cols + 1 legend column ─
+# Matrix: 20 panels (1-20) in 4x5, plus column 6 = legend (21)
+mat <- matrix(c(
+  1,  2,  3,  4,  5, 21,
+  6,  7,  8,  9, 10, 21,
+  11, 12, 13, 14, 15, 21,
+  16, 17, 18, 19, 20, 21
+), nrow = 4, byrow = TRUE)
+
+out_file <- file.path(output_dir, "SenSlope_INDVI_multipanel.png")
+png(out_file, width = 3000, height = 2400, res = 200)
+
+layout(mat, widths = c(rep(1, 5), 0.3))
+par(oma = c(0, 0, 2, 0))  # outer margin for title
+
+for (i in seq_along(slopes)) {
+  par(mar = c(1, 1, 2, 0.5))
+  r <- slopes[[i]]
+  
+  plot(r, col = pal, range = zlim, legend = FALSE, axes = FALSE,
+       main = names(slopes)[i], cex.main = 0.8, font.main = 1)
+  add_scalebar(r)
+}
+
+# ── Legend panel ─────────────────────────────────────────
+par(mar = c(4, 0.5, 4, 3))
+plot.new()
+plot.window(xlim = c(0, 1), ylim = zlim)
+
+# Draw colour ramp
+n <- length(pal)
+yvals <- seq(zlim[1], zlim[2], length.out = n + 1)
+for (j in seq_len(n)) {
+  rect(0.1, yvals[j], 0.5, yvals[j + 1], col = pal[j], border = NA)
+}
+rect(0.1, zlim[1], 0.5, zlim[2], border = "grey30", lwd = 0.5)
+
+axis(4, las = 1, cex.axis = 0.8, line = -2.5)
+mtext("Sen's Slope\n(INDVI yr\u207b\u00b9)", side = 4, line = 0.5, cex = 0.7)
+
+dev.off()
+message(paste("✅ Multi-panel figure saved to", out_file))
