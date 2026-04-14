@@ -1,51 +1,39 @@
 # ==============================================================================
-# Simple visualisor for Earth Engine Mann-Kendall Stacked Rasters
+# Batch plot Sen's Slope (INDVI) across all 250m sites
 # ==============================================================================
 
 library(terra)
 
-# 1. Provide the path to the downloaded .tif file
-raster_path <- "MannKendall_Stacked_Knepp.tif"
+input_dir  <- "Outputs/GEE_MK_250m"
+output_dir <- "Outputs/plots"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-if(!file.exists(raster_path)){
-  message("Please provide the correct path to your downloaded .tif file on line 8.")
-} else {
-  
-  # 2. Load the stacked multi-band raster
-  r <- rast(raster_path)
-  
-  # Set the NA flag correctly so Dynamic World masked pixels and 
-  # irregular site boundaries from GEE are transparent
-  NAflag(r) <- -9999
-  
-  # Choose a metric to visualise (e.g., INDVI)
-  metric <- "INDVI" 
-  
-  # Extract individual bands
-  r_mk    <- r[[paste0("MK_S_", metric)]]
-  r_p     <- r[[paste0("PValue_", metric)]]
-  r_slope <- r[[paste0("SenSlope_", metric)]]
-  
-  # Rename for plot headings
-  names(r_mk) <- "Mann-Kendall S"
-  names(r_p) <- "P-Value"
-  names(r_slope) <- "Sen's Slope"
-  
-  # Combine them back into a slim stack
-  r_plot <- c(r_mk, r_p, r_slope)
-  
-  # Set up output file
-  out_file <- paste0("MK_results_plot_", metric, ".png")
-  png(out_file, width = 1600, height = 500, res = 150)
-  
-  # Plot side-by-side. 'terra::plot' natively handles independent colour scales
-  # per layer in the plot stack!
-  plot(r_plot, 
-       main = names(r_plot),
-       mar = c(3, 3, 3, 5),
-       axes = FALSE)
-       
-  dev.off()
-  
-  message(paste("Plot saved to:", out_file))
+tifs <- list.files(input_dir, pattern = "\\.tif$", full.names = TRUE)
+
+# Extract site name from filename
+get_site_name <- function(path) {
+  base <- tools::file_path_sans_ext(basename(path))
+  sub("^MK_Stacked_250m_", "", base) |> gsub("_", " ", x = _)
 }
+
+# ── Individual site plots ────────────────────────────────
+for (f in tifs) {
+  site <- get_site_name(f)
+  r <- rast(f)
+  NAflag(r) <- -9999
+
+  slope <- r[["SenSlope_INDVI"]]
+  names(slope) <- "Sen's Slope (INDVI)"
+
+  out_file <- file.path(output_dir, paste0("SenSlope_INDVI_", gsub(" ", "_", site), ".png"))
+  png(out_file, width = 800, height = 700, res = 150)
+  plot(slope,
+       main = paste0(site, "\nSen's Slope (INDVI)"),
+       col = hcl.colors(50, "RdYlGn"),
+       axes = FALSE,
+       mar = c(2, 2, 3, 4))
+  dev.off()
+  message(paste("  Plotted:", site))
+}
+
+message(paste("\n✅ All", length(tifs), "site plots saved to", output_dir))
