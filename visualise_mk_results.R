@@ -28,24 +28,18 @@ zlim <- c(-1, 1) * max(abs(quantile(all_vals, c(0.02, 0.98))), na.rm = TRUE)
 ncols <- 50
 pal <- hcl.colors(ncols, "RdYlGn")
 
-# ── Helper: draw a minimalist scale bar ──────────────────
+# ── Helper: draw a 1 km scale bar (black, bottom-left) ───
 add_scalebar <- function(r) {
   e <- ext(r)
-  # Width of raster in metres (approximate via CRS or degree conversion)
-  width_m <- (e$xmax - e$xmin) * 111320 * cos(mean(c(e$ymin, e$ymax)) * pi / 180)
+  bar_deg <- 1000 / (111320 * cos(mean(c(e$ymin, e$ymax)) * pi / 180))
   
-  # Pick a round scale bar length
-  candidates <- c(1, 2, 5, 10, 20, 50, 100, 200, 500)
-  bar_km <- candidates[which.min(abs(candidates - width_m / 4000))]
-  bar_deg <- (bar_km * 1000) / (111320 * cos(mean(c(e$ymin, e$ymax)) * pi / 180))
-  
-  # Position: bottom-left
+  # Fixed proportional position: 5% in from left, 6% up from bottom
   x0 <- e$xmin + (e$xmax - e$xmin) * 0.05
   y0 <- e$ymin + (e$ymax - e$ymin) * 0.06
   
-  lines(c(x0, x0 + bar_deg), c(y0, y0), lwd = 1.5, col = "grey30")
+  lines(c(x0, x0 + bar_deg), c(y0, y0), lwd = 2, col = "black")
   text(x0 + bar_deg / 2, y0 + (e$ymax - e$ymin) * 0.04,
-       paste0(bar_km, " km"), cex = 0.5, col = "grey30")
+       "1 km", cex = 0.45, col = "black", font = 2)
 }
 
 # ── Build the layout: 4 rows x 5 cols + 1 legend column ─
@@ -60,7 +54,7 @@ mat <- matrix(c(
 out_file <- file.path(output_dir, "SenSlope_INDVI_multipanel.png")
 png(out_file, width = 3000, height = 2400, res = 200)
 
-layout(mat, widths = c(rep(1, 5), 0.3))
+layout(mat, widths = c(rep(1, 5), 0.45))
 par(oma = c(0, 0, 2, 0))  # outer margin for title
 
 for (i in seq_along(slopes)) {
@@ -73,7 +67,7 @@ for (i in seq_along(slopes)) {
 }
 
 # ── Legend panel ─────────────────────────────────────────
-par(mar = c(4, 0.5, 4, 3))
+par(mar = c(4, 1, 4, 4.5))
 plot.new()
 plot.window(xlim = c(0, 1), ylim = zlim)
 
@@ -81,12 +75,12 @@ plot.window(xlim = c(0, 1), ylim = zlim)
 n <- length(pal)
 yvals <- seq(zlim[1], zlim[2], length.out = n + 1)
 for (j in seq_len(n)) {
-  rect(0.1, yvals[j], 0.5, yvals[j + 1], col = pal[j], border = NA)
+  rect(0.15, yvals[j], 0.55, yvals[j + 1], col = pal[j], border = NA)
 }
-rect(0.1, zlim[1], 0.5, zlim[2], border = "grey30", lwd = 0.5)
+rect(0.15, zlim[1], 0.55, zlim[2], border = "grey30", lwd = 0.5)
 
-axis(4, las = 1, cex.axis = 0.8, line = -2.5)
-mtext("Sen's Slope\n(INDVI yr\u207b\u00b9)", side = 4, line = 0.5, cex = 0.7)
+axis(4, las = 1, cex.axis = 0.75, line = -1.8)
+mtext("Sen's Slope\n(INDVI yr\u207b\u00b9)", side = 4, line = 1.8, cex = 0.65)
 
 dev.off()
 message(paste("✅ Multi-panel figure saved to", out_file))
