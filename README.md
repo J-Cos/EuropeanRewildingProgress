@@ -18,7 +18,17 @@ This repository contains the computational pipeline for quantifying long-term ve
         *   `MK_S_minNDVI`, `PValue_minNDVI`, `SenSlope_minNDVI`
         *   `MK_S_maxNDVI`, `PValue_maxNDVI`, `SenSlope_maxNDVI`
     *   **Export folders**: `GEE_MK_250m/` and `GEE_MK_1000m/`
-*   **`visualise_mk_results.R`**: A lightweight R plotting utility using base `terra::plot` to render the exported multi-band GeoTIFFs with independent colour scales per statistic.
+*   **`visualise_mk_results.R`**: R visualisation script using `tidyterra`, `ggplot2`, and `cowplot`. Generates a publication-quality 4×5 multi-panel figure of Sen's Slope (INDVI) across all 20 rewilding sites:
+    *   Panels are ordered by rewilding start year (2000–2013) with year ranges in titles
+    *   All panels are equal-sized squares with consistent 1 km scale bars (bottom-left)
+    *   Shared diverging colour scale (RdYlGn) with symmetric limits based on the 2nd/98th percentile
+    *   Site metadata (start years) hardcoded from the GEE `FeatureCollection` properties
+
+## Outputs
+
+*   **`Outputs/GEE_MK_250m/`**: 250 m resolution GeoTIFFs (one 9-band stack per site)
+*   **`Outputs/GEE_MK_1000m/`**: 1000 m resolution GeoTIFFs (one 9-band stack per site)
+*   **`Outputs/plots/SenSlope_INDVI_multipanel.png`**: Multi-panel figure produced by `visualise_mk_results.R`
 
 ## Functions & Unit Tests
 
