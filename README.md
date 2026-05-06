@@ -9,15 +9,17 @@ This repository contains the computational pipeline for quantifying long-term ve
     *   **250 m** (MOD13Q1, 16-day) — QA-filtered and Garonna-smoothed
     *   **1000 m** (MOD13A3, monthly) — raw scaled NDVI (Williams et al. sensitivity test)
     *   At each resolution, the pipeline:
-        *   Applies Dynamic World V1 land-cover masking to filter out undesirable pixels (water, crops, built, bare, snow/ice)
+        *   Applies Dynamic World V1 land-cover masking (full-year 2022) to filter out non-vegetated pixels
+        *   Computes annual INDVI, minNDVI, maxNDVI per pixel per year
         *   Runs pixel-wise Mann-Kendall significance testing with tie-corrected variance (Sen, 1968) and continuity-corrected Z-scores
         *   Calculates Sen's Slope (robust median rate of change)
-        *   Exports a 9-band stacked `.tif` per site to Google Drive
+        *   Exports a combined multi-band `.tif` per site to Google Drive
     *   **Exported bands** (Float32, identical structure at both resolutions):
-        *   `MK_S_INDVI`, `PValue_INDVI`, `SenSlope_INDVI`
-        *   `MK_S_minNDVI`, `PValue_minNDVI`, `SenSlope_minNDVI`
-        *   `MK_S_maxNDVI`, `PValue_maxNDVI`, `SenSlope_maxNDVI`
+        *   **MK summary** (9 bands): `MK_S_INDVI`, `PValue_INDVI`, `SenSlope_INDVI`, `MK_S_minNDVI`, `PValue_minNDVI`, `SenSlope_minNDVI`, `MK_S_maxNDVI`, `PValue_maxNDVI`, `SenSlope_maxNDVI`
+        *   **Annual metrics** (3 × N_years bands): `INDVI_YYYY`, `minNDVI_YYYY`, `maxNDVI_YYYY` for each year in the site's time range
+    *   **Demo site** (Wild Ennerdale): additionally exports full temporal NDVI stacks (every 16-day/monthly observation) for inspection
     *   **Export folders**: `GEE_MK_250m/` and `GEE_MK_1000m/`
+    *   **Time range**: site-specific start year through 2022 (last year of available climate data)
 *   **`visualise_mk_results.R`**: R visualisation script using `tidyterra`, `ggplot2`, and `cowplot`. Generates a publication-quality 4×5 multi-panel figure of Sen's Slope (INDVI) across all 20 rewilding sites:
     *   Panels are ordered by rewilding start year (2000–2013) with year ranges in titles
     *   All panels are equal-sized squares with consistent 1 km scale bars (bottom-left)
@@ -26,8 +28,8 @@ This repository contains the computational pipeline for quantifying long-term ve
 
 ## Outputs
 
-*   **`Outputs/GEE_MK_250m/`**: 250 m resolution GeoTIFFs (one 9-band stack per site)
-*   **`Outputs/GEE_MK_1000m/`**: 1000 m resolution GeoTIFFs (one 9-band stack per site)
+*   **`Outputs/GEE_MK_250m/`**: 250 m GeoTIFFs — MK results + annual metrics per site, plus `NDVI_TimeSeries_250m_Wild_Ennerdale.tif`
+*   **`Outputs/GEE_MK_1000m/`**: 1000 m GeoTIFFs — MK results + annual metrics per site, plus `NDVI_TimeSeries_1000m_Wild_Ennerdale.tif`
 *   **`Outputs/plots/SenSlope_INDVI_multipanel.png`**: Multi-panel figure produced by `visualise_mk_results.R`
 
 ## Functions & Unit Tests

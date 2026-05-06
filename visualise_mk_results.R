@@ -32,7 +32,7 @@ meta <- data.frame(
     2011, 2012, 2012,
     2013
   ),
-  end = 2025,
+  end = 2022,
   stringsAsFactors = FALSE
 )
 meta <- meta[order(meta$start, meta$site_id), ]
