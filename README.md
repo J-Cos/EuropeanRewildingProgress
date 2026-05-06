@@ -34,7 +34,7 @@ This repository contains the computational pipeline for quantifying long-term ve
 
 ## Functions & Unit Tests
 
-All substantive logic is defined in top-level functions (Cell 2). The notebook executes 15 unit tests (Cell 3) covering every function before any data processing begins:
+All substantive logic is defined in top-level functions (Cell 2). The notebook executes 18 unit tests (Cell 3) covering every function before any data processing begins:
 
 | # | Function | Test |
 |---|----------|------|
@@ -50,6 +50,9 @@ All substantive logic is defined in top-level functions (Cell 2). The notebook e
 | 13 | `prep_modis` | Good QA passes, cloud-shadow QA masks |
 | 14 | `compute_annual_metrics` | INDVI, minNDVI, maxNDVI correctly aggregated |
 | 15 | `garonna_smooth` | Returns correct structure, preserves collection size |
+| 16 | `stack_mk` | 9 bands with correct names |
+| 17 | `stack_annual` | 3 × N_years bands, correct naming pattern |
+| 18 | `stack_temporal` | Band count matches collection size, NDVI_YYYYMMDD naming |
 
 ## Agentic Programming & Refactoring
 
