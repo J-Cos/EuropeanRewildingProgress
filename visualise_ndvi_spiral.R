@@ -49,6 +49,21 @@ df_long <- df %>%
   filter(!is.na(ndvi), ndvi >= 0, ndvi <= 1) %>%
   select(pixel_id, date, year, doy, ndvi)
 
+# Close each pixel-year loop so polar lines wrap without cutting through centre.
+# Add a point at doy=0 with the last Dec NDVI, and doy=366 with first Jan NDVI.
+last_obs <- df_long %>%
+  group_by(pixel_id, year) %>%
+  slice_max(doy, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  mutate(doy = 366)
+first_obs <- df_long %>%
+  group_by(pixel_id, year) %>%
+  slice_min(doy, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  mutate(doy = 0)
+df_long <- bind_rows(first_obs, df_long, last_obs) %>%
+  arrange(pixel_id, year, doy)
+
 # ── Month labels for polar axis ──────────────────────────
 month_breaks <- c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
 month_labels <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -69,7 +84,7 @@ p <- ggplot(df_long, aes(
   scale_x_continuous(
     breaks = month_breaks,
     labels = month_labels,
-    limits = c(1, 366),
+    limits = c(0, 366),
     expand = c(0, 0)
   ) +
   scale_y_continuous(
