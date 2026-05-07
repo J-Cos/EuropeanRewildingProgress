@@ -1,158 +1,190 @@
 # ==============================================================================
 # NDVI Seasonality Spiral — Wild Ennerdale (demo site)
-# Polar plot: angle = day-of-year, radius = NDVI, colour = year
-# Each pixel is a single continuous path; segments wrap at the Jan boundary
-# PNAS style
+# Manual polar→Cartesian with arc interpolation for smooth curves
 # ==============================================================================
 
 library(terra)
 library(tidyverse)
 library(cowplot)
 
-# ── Config ───────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════
+#  FUNCTIONS
+# ══════════════════════════════════════════════════════════
+
+load_ndvi_long <- function(input_file) {
+  r <- rast(input_file)
+  NAflag(r) <- -9999
+  dates <- as.Date(gsub("^NDVI_", "", names(r)), format = "%Y%m%d")
+  vals <- values(r)
+  colnames(vals) <- as.character(dates)
+  valid_px <- rowSums(!is.na(vals)) > 0
+  vals <- vals[valid_px, , drop = FALSE]
+  df <- as.data.frame(vals)
+  df$pixel_id <- seq_len(nrow(df))
+  df %>%
+    pivot_longer(cols = -pixel_id, names_to = "date_str", values_to = "ndvi") %>%
+    mutate(
+      date = as.Date(date_str),
+      year = lubridate::year(date),
+      doy  = lubridate::yday(date)
+    ) %>%
+    filter(!is.na(ndvi), ndvi >= 0, ndvi <= 1) %>%
+    select(pixel_id, date, year, doy, ndvi) %>%
+    arrange(pixel_id, date)
+}
+
+interpolate_arcs <- function(df, n_interp = 5) {
+  # For each pixel, interpolate between consecutive observations
+  # so that the path follows the circle instead of cutting chords.
+  # Each pair of consecutive obs gets n_interp intermediate points.
+  # Interpolation is done in polar (doy, ndvi) space, then converted to Cartesian.
+  #
+  # For Dec→Jan transitions (where doy decreases), the interpolation
+  # wraps through 365 naturally.
+
+  df %>%
+    group_by(pixel_id) %>%
+    group_modify(function(grp, key) {
+      n <- nrow(grp)
+      if (n < 2) return(tibble())
+
+      # Build interpolated points between each consecutive pair
+      out <- vector("list", n - 1)
+      for (i in seq_len(n - 1)) {
+        doy1  <- grp$doy[i]
+        doy2  <- grp$doy[i + 1]
+        ndvi1 <- grp$ndvi[i]
+        ndvi2 <- grp$ndvi[i + 1]
+        yr1   <- grp$year[i]
+        yr2   <- grp$year[i + 1]
+
+        # Handle wrap: if doy decreases, we're crossing Dec→Jan
+        if (doy2 < doy1) {
+          doy2_adj <- doy2 + 365.25
+        } else {
+          doy2_adj <- doy2
+        }
+
+        t_seq <- seq(0, 1, length.out = n_interp + 2)
+        doy_interp  <- doy1 + t_seq * (doy2_adj - doy1)
+        ndvi_interp <- ndvi1 + t_seq * (ndvi2 - ndvi1)
+        year_interp <- yr1 + t_seq * (yr2 - yr1)
+
+        # Wrap doy back into [0, 365.25]
+        doy_interp <- doy_interp %% 365.25
+
+        out[[i]] <- tibble(
+          doy  = doy_interp,
+          ndvi = ndvi_interp,
+          year = year_interp
+        )
+      }
+      bind_rows(out)
+    }) %>%
+    ungroup() %>%
+    mutate(
+      angle = -pi/2 + 2 * pi * doy / 365.25,
+      cx = ndvi * cos(angle),
+      cy = ndvi * sin(angle)
+    )
+}
+
+make_grid <- function() {
+  ring_vals <- c(0.2, 0.4, 0.6, 0.8)
+  theta_seq <- seq(0, 2 * pi, length.out = 200)
+  rings <- map_dfr(ring_vals, function(rv) {
+    tibble(x = rv * cos(theta_seq), y = rv * sin(theta_seq), r = rv)
+  })
+
+  month_doys <- c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
+  month_labs <- c("Jan","Feb","Mar","Apr","May","Jun",
+                  "Jul","Aug","Sep","Oct","Nov","Dec")
+  spokes <- tibble(doy = month_doys, label = month_labs) %>%
+    mutate(
+      angle = -pi/2 + 2 * pi * doy / 365.25,
+      x0 = 0, y0 = 0,
+      x1 = 1.02 * cos(angle), y1 = 1.02 * sin(angle),
+      xl = 1.12 * cos(angle), yl = 1.12 * sin(angle)
+    )
+
+  ring_labels <- tibble(r = ring_vals, x = -0.02, y = ring_vals,
+                         label = as.character(ring_vals))
+
+  list(rings = rings, spokes = spokes, ring_labels = ring_labels)
+}
+
+build_spiral_plot <- function(path_df, grid, yr_range,
+                               alpha = 0.012, linewidth = 0.2,
+                               title_suffix = "") {
+  ggplot() +
+    geom_path(data = grid$rings, aes(x = x, y = y, group = r),
+              colour = "grey88", linewidth = 0.3) +
+    geom_segment(data = grid$spokes,
+                 aes(x = x0, y = y0, xend = x1, yend = y1),
+                 colour = "grey88", linewidth = 0.3) +
+    geom_path(data = path_df,
+              aes(x = cx, y = cy, colour = year, group = pixel_id),
+              alpha = alpha, linewidth = linewidth) +
+    geom_text(data = grid$spokes,
+              aes(x = xl, y = yl, label = label),
+              size = 2.5, colour = "grey30", family = "Helvetica") +
+    geom_text(data = grid$ring_labels,
+              aes(x = x, y = y, label = label),
+              size = 1.8, colour = "grey50", family = "Helvetica",
+              hjust = 1, vjust = -0.3) +
+    scale_colour_viridis_c(
+      name = NULL, option = "inferno", begin = 0.15, end = 0.9,
+      breaks = pretty(yr_range[1]:yr_range[2], n = 5),
+      guide = guide_colourbar(barwidth = unit(0.3, "cm"),
+                               barheight = unit(4, "cm"), ticks = FALSE)
+    ) +
+    coord_fixed(xlim = c(-1.25, 1.25), ylim = c(-1.25, 1.25)) +
+    labs(
+      title = paste0("Wild Ennerdale \u2014 NDVI Seasonality", title_suffix),
+      subtitle = paste0("(", yr_range[1], "\u2013", yr_range[2], ")")
+    ) +
+    theme_void(base_size = 9, base_family = "Helvetica") +
+    theme(
+      plot.title      = element_text(size = 10, face = "bold", hjust = 0.5,
+                                      margin = margin(b = 2)),
+      plot.subtitle   = element_text(size = 7.5, hjust = 0.5, colour = "grey40",
+                                      margin = margin(b = 8)),
+      legend.position.inside = c(0.90, 0.15),
+      legend.text     = element_text(size = 6),
+      plot.background = element_rect(fill = "white", colour = NA),
+      plot.margin     = margin(10, 10, 10, 10)
+    )
+}
+
+# ══════════════════════════════════════════════════════════
+#  MAIN
+# ══════════════════════════════════════════════════════════
+
 input_file <- "Outputs/GEE_MK_250m/NDVI_TimeSeries_250m_Wild_Ennerdale.tif"
 output_dir <- "Outputs/plots"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-# ── Load raster and parse dates from band names ──────────
-r <- rast(input_file)
-NAflag(r) <- -9999
-
-band_names <- names(r)
-date_strings <- gsub("^NDVI_", "", band_names)
-dates <- as.Date(date_strings, format = "%Y%m%d")
-
-# ── Extract pixel values → long format ───────────────────
-vals <- values(r)
-colnames(vals) <- as.character(dates)
-
-# Remove fully-NA pixels
-valid_px <- rowSums(!is.na(vals)) > 0
-vals <- vals[valid_px, , drop = FALSE]
-
-df <- as.data.frame(vals)
-df$pixel_id <- seq_len(nrow(df))
-
-df_long <- df %>%
-  pivot_longer(cols = -pixel_id, names_to = "date_str", values_to = "ndvi") %>%
-  mutate(
-    date = as.Date(date_str),
-    year = lubridate::year(date),
-    doy  = lubridate::yday(date)
-  ) %>%
-  filter(!is.na(ndvi), ndvi >= 0, ndvi <= 1) %>%
-  select(pixel_id, date, year, doy, ndvi) %>%
-  arrange(pixel_id, date)
-
-# ── Build segments between consecutive observations ──────
-# Each pixel is one continuous time series; we draw segment-by-segment
-# so that Dec→Jan transitions wrap correctly around the polar axis.
-df_segs <- df_long %>%
-  group_by(pixel_id) %>%
-  mutate(
-    doy_end  = lead(doy),
-    ndvi_end = lead(ndvi),
-    year_end = lead(year)
-  ) %>%
-  filter(!is.na(doy_end)) %>%
-  ungroup()
-
-# Separate normal segments from those that cross the year boundary
-normal <- df_segs %>% filter(doy_end >= doy)
-wrapping <- df_segs %>% filter(doy_end < doy)
-
-# Split wrapping segments at the boundary (doy = 366 / 0)
-# Interpolate NDVI at the wrap point
-wrap_to_dec <- wrapping %>%
-  mutate(
-    # fractional distance from start to the 366 boundary
-    frac = (366 - doy) / (366 - doy + doy_end),
-    ndvi_boundary = ndvi + frac * (ndvi_end - ndvi),
-    doy_end = 366,
-    ndvi_end = ndvi_boundary
-  ) %>%
-  select(pixel_id, year, doy, ndvi, doy_end, ndvi_end)
-
-wrap_from_jan <- wrapping %>%
-  mutate(
-    frac = (366 - doy) / (366 - doy + doy_end),
-    ndvi_boundary = ndvi + frac * (ndvi_end - ndvi),
-    doy = 0,
-    ndvi = ndvi_boundary,
-    year = year_end
-  ) %>%
-  select(pixel_id, year, doy, ndvi, doy_end, ndvi_end)
-
-all_segs <- bind_rows(
-  normal %>% select(pixel_id, year, doy, ndvi, doy_end, ndvi_end),
-  wrap_to_dec,
-  wrap_from_jan
-)
-
-# ── Plot config ──────────────────────────────────────────
-month_breaks <- c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
-month_labels <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+df_long  <- load_ndvi_long(input_file)
 yr_range <- range(df_long$year)
+grid     <- make_grid()
 
-# ── Spiral plot ──────────────────────────────────────────
-p <- ggplot(all_segs, aes(
-    x = doy, xend = doy_end,
-    y = ndvi, yend = ndvi_end,
-    colour = year
-  )) +
-  geom_segment(alpha = 0.012, linewidth = 0.2) +
-  coord_polar(start = -pi / 2, direction = 1) +
-  scale_x_continuous(
-    breaks = month_breaks,
-    labels = month_labels,
-    limits = c(0, 366),
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    limits = c(0, 1),
-    breaks = seq(0.2, 0.8, by = 0.2),
-    expand = c(0, 0)
-  ) +
-  scale_colour_viridis_c(
-    name = NULL,
-    option = "inferno",
-    begin = 0.15,
-    end = 0.9,
-    breaks = pretty(yr_range[1]:yr_range[2], n = 5),
-    guide = guide_colourbar(
-      barwidth = unit(0.3, "cm"),
-      barheight = unit(4, "cm"),
-      ticks = FALSE,
-      title.position = "top"
-    )
-  ) +
-  labs(
-    title = "Wild Ennerdale \u2014 NDVI Seasonality",
-    subtitle = paste0(
-      "Each line = one pixel (",
-      yr_range[1], "\u2013", yr_range[2], ")"
-    )
-  ) +
-  theme_minimal(base_size = 9, base_family = "Helvetica") +
-  theme(
-    plot.title       = element_text(size = 10, face = "bold", hjust = 0.5,
-                                     margin = margin(b = 2)),
-    plot.subtitle    = element_text(size = 7.5, hjust = 0.5, colour = "grey40",
-                                     margin = margin(b = 8)),
-    axis.text.x      = element_text(size = 7, colour = "grey30"),
-    axis.text.y      = element_text(size = 6, colour = "grey50"),
-    axis.title       = element_blank(),
-    panel.grid.major = element_line(colour = "grey90", linewidth = 0.3),
-    panel.grid.minor = element_blank(),
-    legend.position.inside = c(0.92, 0.15),
-    legend.text      = element_text(size = 6),
-    legend.title     = element_text(size = 7),
-    plot.background  = element_rect(fill = "white", colour = NA),
-    plot.margin      = margin(10, 10, 10, 10)
-  )
+# ── Single pixel diagnostic ─────────────────────────────
+best_px <- df_long %>% count(pixel_id) %>% slice_max(n, n = 1) %>%
+  pull(pixel_id) %>% `[`(1)
+cat("Diagnostic pixel:", best_px, "\n")
 
-# ── Save ─────────────────────────────────────────────────
-out_file <- file.path(output_dir, "NDVI_spiral_Wild_Ennerdale.png")
-ggsave(out_file, p, width = 6, height = 6, dpi = 300, bg = "white")
-message(paste("\u2705 Spiral plot saved to", out_file))
+single_path <- df_long %>% filter(pixel_id == best_px) %>%
+  interpolate_arcs(n_interp = 8)
+p_single <- build_spiral_plot(single_path, grid, yr_range,
+                               alpha = 0.8, linewidth = 0.5,
+                               title_suffix = " (single pixel)")
+ggsave(file.path(output_dir, "NDVI_spiral_single_pixel.png"),
+       p_single, width = 6, height = 6, dpi = 300, bg = "white")
+message("\u2705 Single-pixel spiral saved")
+
+# ── All pixels ───────────────────────────────────────────
+all_paths <- interpolate_arcs(df_long, n_interp = 5)
+p_all <- build_spiral_plot(all_paths, grid, yr_range)
+ggsave(file.path(output_dir, "NDVI_spiral_Wild_Ennerdale.png"),
+       p_all, width = 6, height = 6, dpi = 300, bg = "white")
+message("\u2705 Full spiral saved")
