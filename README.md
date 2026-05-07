@@ -35,8 +35,9 @@ This repository contains the computational pipeline for quantifying long-term ve
 *   **`Outputs/GEE_MK_250m/`**: 250 m GeoTIFFs — MK results + annual metrics per site, plus `NDVI_TimeSeries_250m_Wild_Ennerdale.tif`
 *   **`Outputs/GEE_MK_1000m/`**: 1000 m GeoTIFFs — MK results + annual metrics per site, plus `NDVI_TimeSeries_1000m_Wild_Ennerdale.tif`
 *   **`Outputs/plots/SenSlope_INDVI_multipanel.png`**: Multi-panel figure produced by `visualise_mk_results.R`
-*   **`Outputs/plots/NDVI_spiral_composite_Wild_Ennerdale.png`**: Composite visualization produced by `visualise_ndvi_spiral.R`
-*   **`Outputs/plots/NDVI_spiral_Wild_Ennerdale_single_pixel.png`**: Single-pixel phenology diagnostic.
+*   **`Outputs/plots/NDVI_spiral_composite_Wild_Ennerdale_250m.png`**: Composite visualization (250m resolution, ±8 day jitter).
+*   **`Outputs/plots/NDVI_spiral_composite_Wild_Ennerdale_1000m.png`**: Composite visualization (1000m resolution, ±15 day jitter).
+*   **`Outputs/plots/NDVI_spiral_Wild_Ennerdale_..._single_pixel.png`**: Single-pixel phenology diagnostic plots.
 
 ## Functions & Unit Tests
 

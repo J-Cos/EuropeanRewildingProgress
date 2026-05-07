@@ -250,7 +250,8 @@ build_trend_panel <- function(df, metric_label, y_label,
 # ══════════════════════════════════════════════════════════
 
 generate_spiral_composite <- function(ts_file, mk_file, output_dir,
-                                      site_name = "Wild Ennerdale") {
+                                      site_name = "Wild Ennerdale",
+                                      jitter_days = 8) {
   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 
@@ -260,7 +261,7 @@ yr_range <- range(df_long$year)
 grid     <- make_grid()
 
 # ── Panel A: Spiral (all pixels, jittered points) ────────
-all_cart <- polar_to_cartesian(df_long, jitter_days = 8)
+all_cart <- polar_to_cartesian(df_long, jitter_days = jitter_days)
 p_spiral <- build_spiral_plot(all_cart, grid, yr_range,
                                alpha = 0.08, use_points = TRUE,
                                point_size = 0.4)
@@ -319,11 +320,22 @@ best_px <- df_long %>% count(pixel_id) %>% slice_max(n, n = 1) %>%
 # ══════════════════════════════════════════════════════════
 
 if (sys.nframe() == 0) {
+  # 250m resolution (16-day composite -> 8 days jitter)
   generate_spiral_composite(
     ts_file = "Outputs/GEE_MK_250m/NDVI_TimeSeries_250m_Wild_Ennerdale.tif",
     mk_file = "Outputs/GEE_MK_250m/MK_Stacked_250m_Wild_Ennerdale.tif",
     output_dir = "Outputs/plots",
-    site_name = "Wild Ennerdale"
+    site_name = "Wild_Ennerdale_250m",
+    jitter_days = 8
+  )
+  
+  # 1000m resolution (Monthly composite -> 15 days jitter)
+  generate_spiral_composite(
+    ts_file = "Outputs/GEE_MK_1000m/NDVI_TimeSeries_1000m_Wild_Ennerdale.tif",
+    mk_file = "Outputs/GEE_MK_1000m/MK_Stacked_1000m_Wild_Ennerdale.tif",
+    output_dir = "Outputs/plots",
+    site_name = "Wild_Ennerdale_1000m",
+    jitter_days = 15
   )
 }
 
