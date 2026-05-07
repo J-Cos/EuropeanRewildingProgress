@@ -25,16 +25,22 @@ This repository contains the computational pipeline for quantifying long-term ve
     *   All panels are equal-sized squares with consistent 1 km scale bars (bottom-left)
     *   Shared diverging colour scale (RdYlGn) with symmetric limits based on the 2nd/98th percentile
     *   Site metadata (start years) hardcoded from the GEE `FeatureCollection` properties
+*   **`visualise_ndvi_spiral.R`**: R visualisation script generating PNAS-style seasonality spirals and temporal trend plots using `ggplot2` and `cowplot`.
+    *   Creates point-based Cartesian spirals with angular jitter for multi-pixel density visualization (resolving polar geometric interpolation artifacts).
+    *   Generates a 2-column composite: Spiral plot (A) alongside iNDVI, minNDVI, and maxNDVI temporal trajectories (B-D).
+    *   Contains standalone diagnostic logic for tracing individual pixel phenology loops.
 
 ## Outputs
 
 *   **`Outputs/GEE_MK_250m/`**: 250 m GeoTIFFs — MK results + annual metrics per site, plus `NDVI_TimeSeries_250m_Wild_Ennerdale.tif`
 *   **`Outputs/GEE_MK_1000m/`**: 1000 m GeoTIFFs — MK results + annual metrics per site, plus `NDVI_TimeSeries_1000m_Wild_Ennerdale.tif`
 *   **`Outputs/plots/SenSlope_INDVI_multipanel.png`**: Multi-panel figure produced by `visualise_mk_results.R`
+*   **`Outputs/plots/NDVI_spiral_composite_Wild_Ennerdale.png`**: Composite visualization produced by `visualise_ndvi_spiral.R`
+*   **`Outputs/plots/NDVI_spiral_Wild_Ennerdale_single_pixel.png`**: Single-pixel phenology diagnostic.
 
 ## Functions & Unit Tests
 
-All substantive logic is defined in top-level functions (Cell 2). The notebook executes 18 unit tests (Cell 3) covering every function before any data processing begins:
+All substantive GEE pipeline logic is defined in top-level functions (Cell 2). The notebook executes 18 unit tests (Cell 3) covering every function before any data processing begins. The `visualise_ndvi_spiral.R` logic is fully functionalized and tested in `test_visualise_ndvi_spiral.R`.
 
 | # | Function | Test |
 |---|----------|------|
@@ -53,6 +59,9 @@ All substantive logic is defined in top-level functions (Cell 2). The notebook e
 | 16 | `stack_mk` | 9 bands with correct names |
 | 17 | `stack_annual` | 3 × N_years bands, correct naming pattern |
 | 18 | `stack_temporal` | Band count matches collection size, NDVI_YYYYMMDD naming |
+| 19 | `polar_to_cartesian` | (R) Computes correct circle geometry with/without uniform jitter |
+| 20 | `interpolate_arcs` | (R) Handles intra-year segments and >50 day gaps via NA breaks |
+| 21 | `make_grid` | (R) Correctly generates 4 rings and 12 spokes for polar visualization |
 
 ## Agentic Programming & Refactoring
 

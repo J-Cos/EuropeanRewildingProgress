@@ -179,8 +179,8 @@ build_spiral_plot <- function(path_df, grid, yr_range,
     ) +
     coord_fixed(xlim = c(-1.25, 1.25), ylim = c(-1.25, 1.25)) +
     labs(
-      title = paste0("Wild Ennerdale \u2014 NDVI Seasonality", title_suffix),
-      subtitle = paste0("(", yr_range[1], "\u2013", yr_range[2], ")")
+      title = title_suffix,
+      subtitle = NULL
     ) +
     theme_void(base_size = 9, base_family = "Helvetica") +
     theme(
@@ -249,10 +249,10 @@ build_trend_panel <- function(df, metric_label, y_label,
 #  MAIN
 # ══════════════════════════════════════════════════════════
 
-ts_file <- "Outputs/GEE_MK_250m/NDVI_TimeSeries_250m_Wild_Ennerdale.tif"
-mk_file <- "Outputs/GEE_MK_250m/MK_Stacked_250m_Wild_Ennerdale.tif"
-output_dir <- "Outputs/plots"
-dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+generate_spiral_composite <- function(ts_file, mk_file, output_dir,
+                                      site_name = "Wild Ennerdale") {
+  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
 
 # ── Load time series data ────────────────────────────────
 df_long  <- load_ndvi_long(ts_file)
@@ -271,12 +271,12 @@ df_min    <- load_annual_metrics(mk_file, "minNDVI")
 df_max    <- load_annual_metrics(mk_file, "maxNDVI")
 
 # ── Panels B–D: Annual trend plots ───────────────────────
-p_indvi <- build_trend_panel(df_indvi, "B  Integrated NDVI (iNDVI)",
-                              "iNDVI", yr_range, "#2a6e3f")
-p_min   <- build_trend_panel(df_min, "C  Minimum NDVI",
-                              "min NDVI", yr_range, "#8c510a")
-p_max   <- build_trend_panel(df_max, "D  Maximum NDVI",
-                              "max NDVI", yr_range, "#01665e")
+  p_indvi <- build_trend_panel(df_indvi, "B",
+                                "iNDVI", yr_range, "#2a6e3f")
+  p_min   <- build_trend_panel(df_min, "C",
+                                "min NDVI", yr_range, "#8c510a")
+  p_max   <- build_trend_panel(df_max, "D",
+                                "max NDVI", yr_range, "#01665e")
 
 # ── Composite figure ─────────────────────────────────────
 # Left: spiral (full height)  |  Right: 3 stacked trend panels
@@ -284,32 +284,46 @@ right_col <- plot_grid(p_indvi, p_min, p_max,
                         ncol = 1, align = "v", axis = "lr")
 
 p_spiral_labelled <- p_spiral +
-  labs(title = "A  Wild Ennerdale \u2014 NDVI Seasonality") +
-  theme(plot.title = element_text(size = 8, face = "bold", hjust = 0,
+  labs(title = "A") +
+  theme(plot.title = element_text(size = 10, face = "bold", hjust = 0,
                                     margin = margin(b = 2)))
 
 composite <- plot_grid(p_spiral_labelled, right_col,
                         ncol = 2, rel_widths = c(1, 0.85))
 
-out_composite <- file.path(output_dir, "NDVI_spiral_composite_Wild_Ennerdale.png")
+out_composite <- file.path(output_dir, paste0("NDVI_spiral_composite_", gsub(" ", "_", site_name), ".png"))
 ggsave(out_composite, composite,
        width = 10, height = 5.5, dpi = 300, bg = "white")
 message(paste("\u2705 Composite figure saved to", out_composite))
 
 # ── Also save standalone spiral ──────────────────────────
-ggsave(file.path(output_dir, "NDVI_spiral_Wild_Ennerdale.png"),
-       p_spiral, width = 6, height = 6, dpi = 300, bg = "white")
-message("\u2705 Standalone spiral saved")
+out_standalone <- file.path(output_dir, paste0("NDVI_spiral_", gsub(" ", "_", site_name), ".png"))
+ggsave(out_standalone, p_spiral, width = 6, height = 6, dpi = 300, bg = "white")
+message(paste("\u2705 Standalone spiral saved to", out_standalone))
 
 # ── Single pixel diagnostic ─────────────────────────────
 best_px <- df_long %>% count(pixel_id) %>% slice_max(n, n = 1) %>%
   pull(pixel_id) %>% `[`(1)
-single_path <- df_long %>% filter(pixel_id == best_px) %>%
-  interpolate_arcs(n_interp = 8, max_gap_days = 50)
-p_single <- build_spiral_plot(single_path, grid, yr_range,
-                               alpha = 0.8, linewidth = 0.5,
-                               title_suffix = " (single pixel)")
-ggsave(file.path(output_dir, "NDVI_spiral_single_pixel.png"),
-       p_single, width = 6, height = 6, dpi = 300, bg = "white")
-message("\u2705 Single-pixel spiral saved")
+  single_path <- df_long %>% filter(pixel_id == best_px) %>%
+    interpolate_arcs(n_interp = 8, max_gap_days = 50)
+  p_single <- build_spiral_plot(single_path, grid, yr_range,
+                                 alpha = 0.8, linewidth = 0.5,
+                                 title_suffix = " (single pixel)")
+  out_single <- file.path(output_dir, paste0("NDVI_spiral_", gsub(" ", "_", site_name), "_single_pixel.png"))
+  ggsave(out_single, p_single, width = 6, height = 6, dpi = 300, bg = "white")
+  message(paste("\u2705 Single-pixel spiral saved to", out_single))
+}
+
+# ══════════════════════════════════════════════════════════
+#  EXECUTION
+# ══════════════════════════════════════════════════════════
+
+if (sys.nframe() == 0) {
+  generate_spiral_composite(
+    ts_file = "Outputs/GEE_MK_250m/NDVI_TimeSeries_250m_Wild_Ennerdale.tif",
+    mk_file = "Outputs/GEE_MK_250m/MK_Stacked_250m_Wild_Ennerdale.tif",
+    output_dir = "Outputs/plots",
+    site_name = "Wild Ennerdale"
+  )
+}
 
