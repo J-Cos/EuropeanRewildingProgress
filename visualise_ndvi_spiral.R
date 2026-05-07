@@ -33,7 +33,20 @@ load_ndvi_long <- function(input_file) {
     arrange(pixel_id, date)
 }
 
-interpolate_arcs <- function(df, n_interp = 5) {
+polar_to_cartesian <- function(df, jitter_days = 0) {
+  # Convert doy + ndvi to Cartesian (x, y) for manual polar plot
+  # Jan 1 at bottom (6 o'clock), clockwise
+  # jitter_days: uniform noise ± this many days, to spread shared composite dates
+  df %>%
+    mutate(
+      doy_j = doy + runif(n(), -jitter_days, jitter_days),
+      angle = -pi/2 + 2 * pi * doy_j / 365.25,
+      cx = ndvi * cos(angle),
+      cy = ndvi * sin(angle)
+    )
+}
+
+interpolate_arcs <- function(df, n_interp = 5, max_gap_days = 50) {
   # For each pixel, interpolate between consecutive observations
   # so that the path follows the circle instead of cutting chords.
   # Each pair of consecutive obs gets n_interp intermediate points.
@@ -41,6 +54,10 @@ interpolate_arcs <- function(df, n_interp = 5) {
   #
   # For Dec→Jan transitions (where doy decreases), the interpolation
   # wraps through 365 naturally.
+  #
+
+  # Gaps longer than max_gap_days insert an NA break instead of interpolating,
+  # preventing spurious arcs through low-NDVI territory during winter data gaps.
 
   df %>%
     group_by(pixel_id) %>%
@@ -48,9 +65,20 @@ interpolate_arcs <- function(df, n_interp = 5) {
       n <- nrow(grp)
       if (n < 2) return(tibble())
 
-      # Build interpolated points between each consecutive pair
       out <- vector("list", n - 1)
       for (i in seq_len(n - 1)) {
+        gap_days <- as.numeric(grp$date[i + 1] - grp$date[i])
+
+        # If the gap is too large, insert a break instead of interpolating
+        if (gap_days > max_gap_days) {
+          out[[i]] <- tibble(
+            doy  = c(grp$doy[i], NA),
+            ndvi = c(grp$ndvi[i], NA),
+            year = c(grp$year[i], NA)
+          )
+          next
+        }
+
         doy1  <- grp$doy[i]
         doy2  <- grp$doy[i + 1]
         ndvi1 <- grp$ndvi[i]
@@ -115,16 +143,26 @@ make_grid <- function() {
 
 build_spiral_plot <- function(path_df, grid, yr_range,
                                alpha = 0.012, linewidth = 0.2,
+                               point_size = 0.15, use_points = FALSE,
                                title_suffix = "") {
-  ggplot() +
+  p <- ggplot() +
     geom_path(data = grid$rings, aes(x = x, y = y, group = r),
               colour = "grey88", linewidth = 0.3) +
     geom_segment(data = grid$spokes,
                  aes(x = x0, y = y0, xend = x1, yend = y1),
-                 colour = "grey88", linewidth = 0.3) +
-    geom_path(data = path_df,
-              aes(x = cx, y = cy, colour = year, group = pixel_id),
-              alpha = alpha, linewidth = linewidth) +
+                 colour = "grey88", linewidth = 0.3)
+
+  if (use_points) {
+    p <- p + geom_point(data = path_df,
+                        aes(x = cx, y = cy, colour = year),
+                        alpha = alpha, size = point_size, shape = 16)
+  } else {
+    p <- p + geom_path(data = path_df,
+                       aes(x = cx, y = cy, colour = year, group = pixel_id),
+                       alpha = alpha, linewidth = linewidth)
+  }
+
+  p <- p +
     geom_text(data = grid$spokes,
               aes(x = xl, y = yl, label = label),
               size = 2.5, colour = "grey30", family = "Helvetica") +
@@ -154,6 +192,7 @@ build_spiral_plot <- function(path_df, grid, yr_range,
       plot.background = element_rect(fill = "white", colour = NA),
       plot.margin     = margin(10, 10, 10, 10)
     )
+  p
 }
 
 # ══════════════════════════════════════════════════════════
@@ -174,7 +213,7 @@ best_px <- df_long %>% count(pixel_id) %>% slice_max(n, n = 1) %>%
 cat("Diagnostic pixel:", best_px, "\n")
 
 single_path <- df_long %>% filter(pixel_id == best_px) %>%
-  interpolate_arcs(n_interp = 8)
+  interpolate_arcs(n_interp = 8, max_gap_days = 50)
 p_single <- build_spiral_plot(single_path, grid, yr_range,
                                alpha = 0.8, linewidth = 0.5,
                                title_suffix = " (single pixel)")
@@ -182,9 +221,12 @@ ggsave(file.path(output_dir, "NDVI_spiral_single_pixel.png"),
        p_single, width = 6, height = 6, dpi = 300, bg = "white")
 message("\u2705 Single-pixel spiral saved")
 
-# ── All pixels ───────────────────────────────────────────
-all_paths <- interpolate_arcs(df_long, n_interp = 5)
-p_all <- build_spiral_plot(all_paths, grid, yr_range)
+# ── All pixels (points — raw data, no interpolation) ─────
+all_cart <- polar_to_cartesian(df_long, jitter_days = 8)
+p_all <- build_spiral_plot(all_cart, grid, yr_range,
+                            alpha = 0.08, use_points = TRUE,
+                            point_size = 0.4)
 ggsave(file.path(output_dir, "NDVI_spiral_Wild_Ennerdale.png"),
        p_all, width = 6, height = 6, dpi = 300, bg = "white")
 message("\u2705 Full spiral saved")
+
