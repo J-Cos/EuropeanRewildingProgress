@@ -251,7 +251,8 @@ build_trend_panel <- function(df, metric_label, y_label,
 
 generate_spiral_composite <- function(ts_file, mk_file, output_dir,
                                       site_name = "Wild Ennerdale",
-                                      jitter_days = 8) {
+                                      jitter_days = 8,
+                                      point_alpha = 0.08) {
   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 
@@ -263,7 +264,7 @@ grid     <- make_grid()
 # ── Panel A: Spiral (all pixels, jittered points) ────────
 all_cart <- polar_to_cartesian(df_long, jitter_days = jitter_days)
 p_spiral <- build_spiral_plot(all_cart, grid, yr_range,
-                               alpha = 0.08, use_points = TRUE,
+                               alpha = point_alpha, use_points = TRUE,
                                point_size = 0.4)
 
 # ── Load annual metrics ──────────────────────────────────
@@ -326,7 +327,8 @@ if (sys.nframe() == 0) {
     mk_file = "Outputs/GEE_MK_250m/MK_Stacked_250m_Wild_Ennerdale.tif",
     output_dir = "Outputs/plots",
     site_name = "Wild_Ennerdale_250m",
-    jitter_days = 8
+    jitter_days = 8,
+    point_alpha = 0.08
   )
   
   # 1000m resolution (Monthly composite -> 15 days jitter)
@@ -335,7 +337,8 @@ if (sys.nframe() == 0) {
     mk_file = "Outputs/GEE_MK_1000m/MK_Stacked_1000m_Wild_Ennerdale.tif",
     output_dir = "Outputs/plots",
     site_name = "Wild_Ennerdale_1000m",
-    jitter_days = 15
+    jitter_days = 15,
+    point_alpha = 0.25
   )
 }
 
