@@ -64,6 +64,12 @@ All substantive GEE pipeline logic is defined in top-level functions (Cell 2). T
 | 20 | `interpolate_arcs` | (R) Handles intra-year segments and >50 day gaps via NA breaks |
 | 21 | `make_grid` | (R) Correctly generates 4 rings and 12 spokes for polar visualization |
 
+## Figure Captions
+
+**Fig. 1. High-resolution phenological and structural greening dynamics at the Wild Ennerdale rewilding site (250m resolution, 2003–2022).** (A) Seasonality spiral depicting the raw, pixel-level Normalized Difference Vegetation Index (NDVI) trajectory. Data points represent individual 16-day MODIS (MOD13Q1) composite observations across the entire spatial domain, with angular jitter (±8 days) applied to resolve temporal overlap artefacts. Radial distance scales with NDVI magnitude, and temporal progression (year) is encoded by color. (B–D) Annual trajectories for pixel-level integrated NDVI (iNDVI), minimum NDVI, and maximum NDVI. Semi-transparent lines represent individual pixel trajectories; solid black lines denote the locally estimated scatterplot smoothing (LOESS) mean across the spatial domain.
+
+**Fig. 2. Coarse-scale phenological shifts at the Wild Ennerdale rewilding site (1000m resolution, 2003–2022).** (A) Seasonality spiral of monthly MODIS (MOD13A3) observations, utilizing an expanded angular jitter (±15 days) to accommodate the lower temporal frequency. Point and line opacities are proportionally increased to account for reduced spatial density (16-fold decrease in pixel count relative to the 250m product). (B–D) Trajectories of annual aggregated metrics (iNDVI, minimum NDVI, maximum NDVI) for 1 km pixels. Note the dampening of extreme values compared to the 250m spatial domain due to sub-pixel spatial aggregation effects.
+
 ## Agentic Programming & Refactoring
 
 This repository was constructed using agentic programming (Claude and Gemini with human supervision and verification). Fully human-authored Javascript GEE analyses were refactored to the Python API by AI, all key code logic is unit tested and human-validated. Accountability for any errors is with the human authors.
