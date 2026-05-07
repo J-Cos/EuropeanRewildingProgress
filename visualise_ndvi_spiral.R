@@ -222,10 +222,11 @@ load_annual_metrics <- function(mk_file, metric, start_year = 2003,
 }
 
 build_trend_panel <- function(df, metric_label, y_label,
-                               yr_range, colour_hex = "grey30") {
+                               yr_range, colour_hex = "grey30",
+                               alpha_val = 0.03) {
   # PNAS-style trend panel: per-pixel semi-transparent lines + loess mean
   ggplot(df, aes(x = year, y = value)) +
-    geom_line(aes(group = pixel_id), alpha = 0.03, linewidth = 0.3,
+    geom_line(aes(group = pixel_id), alpha = alpha_val, linewidth = 0.3,
               colour = colour_hex) +
     geom_smooth(method = "loess", formula = y ~ x, se = TRUE,
                 colour = "black", fill = "grey70",
@@ -252,7 +253,8 @@ build_trend_panel <- function(df, metric_label, y_label,
 generate_spiral_composite <- function(ts_file, mk_file, output_dir,
                                       site_name = "Wild Ennerdale",
                                       jitter_days = 8,
-                                      point_alpha = 0.08) {
+                                      point_alpha = 0.08,
+                                      line_alpha = 0.03) {
   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 
@@ -274,11 +276,11 @@ df_max    <- load_annual_metrics(mk_file, "maxNDVI")
 
 # ── Panels B–D: Annual trend plots ───────────────────────
   p_indvi <- build_trend_panel(df_indvi, "B",
-                                "iNDVI", yr_range, "#2a6e3f")
+                                "iNDVI", yr_range, "#2a6e3f", line_alpha)
   p_min   <- build_trend_panel(df_min, "C",
-                                "min NDVI", yr_range, "#8c510a")
+                                "min NDVI", yr_range, "#8c510a", line_alpha)
   p_max   <- build_trend_panel(df_max, "D",
-                                "max NDVI", yr_range, "#01665e")
+                                "max NDVI", yr_range, "#01665e", line_alpha)
 
 # ── Composite figure ─────────────────────────────────────
 # Left: spiral (full height)  |  Right: 3 stacked trend panels
@@ -328,7 +330,8 @@ if (sys.nframe() == 0) {
     output_dir = "Outputs/plots",
     site_name = "Wild_Ennerdale_250m",
     jitter_days = 8,
-    point_alpha = 0.08
+    point_alpha = 0.08,
+    line_alpha = 0.03
   )
   
   # 1000m resolution (Monthly composite -> 15 days jitter)
@@ -338,7 +341,8 @@ if (sys.nframe() == 0) {
     output_dir = "Outputs/plots",
     site_name = "Wild_Ennerdale_1000m",
     jitter_days = 15,
-    point_alpha = 0.25
+    point_alpha = 0.25,
+    line_alpha = 0.1
   )
 }
 
